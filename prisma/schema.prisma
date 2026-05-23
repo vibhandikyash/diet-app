@@ -1,0 +1,202 @@
+// Prisma schema for nutrition tracking application
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - represents app users
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relationships
+  meals         Meal[]
+  goals         UserGoal[]
+  dailyLogs     DailyLog[]
+  mealTemplates MealTemplate[]
+
+  @@index([email])
+}
+
+// Meal model - individual meal entries
+model Meal {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  date        DateTime
+  mealType    String   // breakfast, lunch, dinner, snack
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItems   MealFoodItem[]
+  dailyLog    DailyLog?         @relation(fields: [dailyLogId], references: [id])
+  dailyLogId  String?
+
+  @@index([userId])
+  @@index([date])
+  @@index([userId, date])
+}
+
+// FoodItem model - food items database
+model FoodItem {
+  id            String   @id @default(cuid())
+  name          String
+  brand         String?
+  servingSize   String
+  servingUnit   String
+  barcode       String?  @unique
+  isCustom      Boolean  @default(false)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships
+  nutrition     NutritionData?
+  meals         MealFoodItem[]
+  templates     TemplateFoodItem[]
+
+  @@index([name])
+  @@index([barcode])
+}
+
+// UserGoal model - user's nutrition goals
+model UserGoal {
+  id           String   @id @default(cuid())
+  userId       String
+  calories     Int
+  protein      Int      // grams
+  carbs        Int      // grams
+  fat          Int      // grams
+  fiber        Int?     // grams
+  sugar        Int?     // grams
+  startDate    DateTime @default(now())
+  endDate      DateTime?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isActive])
+}
+
+// DailyLog model - daily nutrition summary
+model DailyLog {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @unique
+  totalCalories   Int      @default(0)
+  totalProtein    Int      @default(0)
+  totalCarbs      Int      @default(0)
+  totalFat        Int      @default(0)
+  totalFiber      Int      @default(0)
+  totalSugar      Int      @default(0)
+  waterIntake     Int      @default(0) // ml
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meals           Meal[]
+
+  @@index([userId])
+  @@index([date])
+  @@index([userId, date])
+}
+
+// MealTemplate model - saved meal templates
+model MealTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  mealType    String   // breakfast, lunch, dinner, snack
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItems   TemplateFoodItem[]
+
+  @@index([userId])
+  @@index([userId, mealType])
+}
+
+// NutritionData model - nutrition facts for food items
+model NutritionData {
+  id            String   @id @default(cuid())
+  foodItemId    String   @unique
+  calories      Int
+  protein       Float    // grams
+  carbs         Float    // grams
+  fat           Float    // grams
+  fiber         Float?   // grams
+  sugar         Float?   // grams
+  sodium        Float?   // mg
+  cholesterol   Float?   // mg
+  saturatedFat  Float?   // grams
+  transFat      Float?   // grams
+  vitaminA      Float?   // mcg
+  vitaminC      Float?   // mg
+  calcium       Float?   // mg
+  iron          Float?   // mg
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships
+  foodItem      FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+
+  @@index([foodItemId])
+}
+
+// Junction table for Meal and FoodItem (many-to-many)
+model MealFoodItem {
+  id          String   @id @default(cuid())
+  mealId      String
+  foodItemId  String
+  quantity    Float    @default(1)
+  servingSize String
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  meal        Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+
+  @@unique([mealId, foodItemId])
+  @@index([mealId])
+  @@index([foodItemId])
+}
+
+// Junction table for MealTemplate and FoodItem (many-to-many)
+model TemplateFoodItem {
+  id          String       @id @default(cuid())
+  templateId  String
+  foodItemId  String
+  quantity    Float        @default(1)
+  servingSize String
+  createdAt   DateTime     @default(now())
+
+  // Relationships
+  template    MealTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem     @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, foodItemId])
+  @@index([templateId])
+  @@index([foodItemId])
+}
