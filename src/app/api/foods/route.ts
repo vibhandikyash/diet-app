@@ -2,26 +2,45 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateFoodInput } from '@/lib/food-validation';
 
-// GET /api/foods - List foods with pagination
+// GET /api/foods - List foods with pagination, search, and filtering
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
+    const search = searchParams.get('search') || '';
+    const brand = searchParams.get('brand') || '';
+
+    // Build where clause for filtering
+    const where: any = {};
+
+    // Add search filter (case-insensitive name search)
+    if (search) {
+      where.name = {
+        contains: search,
+        mode: 'insensitive',
+      };
+    }
+
+    // Add brand filter
+    if (brand) {
+      where.brand = brand;
+    }
 
     const [foods, total] = await Promise.all([
       prisma.foodItem.findMany({
+        where,
         skip,
         take: limit,
         include: {
           nutrition: true,
         },
         orderBy: {
-          createdAt: 'desc',
+          name: 'asc', // Sort alphabetically by name
         },
       }),
-      prisma.foodItem.count(),
+      prisma.foodItem.count({ where }),
     ]);
 
     return NextResponse.json({
