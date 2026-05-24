@@ -13,6 +13,7 @@
     "test:navigation": "node verify-navigation.test.js",
     "test:food-structure": "node verify-food-structure.test.js",
     "test:food-crud": "node verify-food-crud.test.js",
+    "test:meal-logging": "node verify-meal-logging.test.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio"
