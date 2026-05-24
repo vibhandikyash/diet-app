@@ -38,7 +38,19 @@ export default function FoodsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
 
+  // Debounced search effect (300ms delay for search/filter, immediate for page changes)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchFoods();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, brandFilter]);
+
+  // Immediate fetch on page change
   useEffect(() => {
     fetchFoods();
   }, [currentPage]);
@@ -46,7 +58,17 @@ export default function FoodsPage() {
   async function fetchFoods() {
     try {
       setLoading(true);
-      const response = await fetch(`/api/foods?page=${currentPage}&limit=20`);
+      let url = `/api/foods?page=${currentPage}&limit=20`;
+
+      if (searchQuery) {
+        url += `&search=${encodeURIComponent(searchQuery)}`;
+      }
+
+      if (brandFilter) {
+        url += `&brand=${encodeURIComponent(brandFilter)}`;
+      }
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error('Failed to fetch foods');
@@ -124,6 +146,28 @@ export default function FoodsPage() {
           </div>
         </div>
 
+        {/* Search and Filter Controls */}
+        <div className="mt-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search foods by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 border"
+            />
+          </div>
+          <div className="sm:w-64">
+            <input
+              type="text"
+              placeholder="Filter by brand..."
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 border"
+            />
+          </div>
+        </div>
+
         <div className="mt-8 flex flex-col">
           <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
             <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
@@ -161,7 +205,9 @@ export default function FoodsPage() {
                     {foods.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="px-3 py-4 text-center text-sm text-gray-500">
-                          No food items found. Add your first food item to get started.
+                          {searchQuery || brandFilter
+                            ? 'No food items match your search criteria. Try adjusting your filters.'
+                            : 'No food items found. Add your first food item to get started.'}
                         </td>
                       </tr>
                     ) : (
