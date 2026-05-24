@@ -10,6 +10,7 @@
     "test:setup": "node verify-setup.test.js",
     "test:prisma": "node verify-prisma.test.js",
     "test:auth": "node verify-auth.test.js",
+    "test:navigation": "node verify-navigation.test.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio"
