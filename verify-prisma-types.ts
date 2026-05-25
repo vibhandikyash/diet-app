@@ -13,6 +13,7 @@ const userCheck: User = {
   id: 'test',
   email: 'test@example.com',
   name: 'Test User',
+  password: 'hashed-password',
   createdAt: new Date(),
   updatedAt: new Date(),
 };

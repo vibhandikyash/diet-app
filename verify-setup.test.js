@@ -1,5 +1,5 @@
 /**
- * Verification tests for Next.js 14 setup
+ * Verification tests for Next.js 15 setup
  * These tests verify the acceptance criteria for the initialization ticket
  */
 
@@ -33,12 +33,12 @@ test('package.json exists', () => {
   assert(fs.existsSync('package.json'), 'package.json not found');
 });
 
-test('package.json has Next.js 14+ dependency', () => {
+test('package.json has Next.js 15 dependency', () => {
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert(pkg.dependencies?.next, 'Next.js not found in dependencies');
   const nextVersion = pkg.dependencies.next.replace(/[\^~]/, '');
   const majorVersion = parseInt(nextVersion.split('.')[0]);
-  assert(majorVersion >= 14, `Next.js version is ${nextVersion}, expected 14+`);
+  assert(majorVersion === 15, `Next.js version is ${nextVersion}, expected 15.x`);
 });
 
 test('package.json has TypeScript dependencies', () => {
@@ -54,6 +54,14 @@ test('package.json has Tailwind CSS dependencies', () => {
   assert(pkg.devDependencies?.tailwindcss, 'tailwindcss not found in devDependencies');
   assert(pkg.devDependencies?.postcss, 'postcss not found in devDependencies');
   assert(pkg.devDependencies?.autoprefixer, 'autoprefixer not found in devDependencies');
+});
+
+test('package.json has shadcn/ui runtime dependencies', () => {
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  assert(pkg.dependencies?.['class-variance-authority'], 'class-variance-authority not found in dependencies');
+  assert(pkg.dependencies?.clsx, 'clsx not found in dependencies');
+  assert(pkg.dependencies?.['tailwind-merge'], 'tailwind-merge not found in dependencies');
+  assert(pkg.dependencies?.['lucide-react'], 'lucide-react not found in dependencies');
 });
 
 test('package.json has date-fns dependency', () => {
@@ -84,6 +92,15 @@ test('tailwind.config.ts exists', () => {
   const tsExists = fs.existsSync('tailwind.config.ts');
   const jsExists = fs.existsSync('tailwind.config.js');
   assert(tsExists || jsExists, 'tailwind.config.ts or tailwind.config.js not found');
+});
+
+test('Tailwind CSS has shadcn theme colors configured', () => {
+  const configPath = fs.existsSync('tailwind.config.ts') ? 'tailwind.config.ts' : 'tailwind.config.js';
+  const content = fs.readFileSync(configPath, 'utf8');
+  assert(content.includes('darkMode'), 'Tailwind darkMode not configured for shadcn/ui');
+  assert(content.includes('background: "hsl(var(--background))"'), 'background theme color not configured');
+  assert(content.includes('primary:') && content.includes('"hsl(var(--primary))"'), 'primary theme color not configured');
+  assert(content.includes('destructive:') && content.includes('"hsl(var(--destructive))"'), 'destructive theme color not configured');
 });
 
 test('postcss.config.js exists', () => {
@@ -117,7 +134,31 @@ test('globals.css exists with Tailwind directives', () => {
   assert(hasDirectives, 'globals.css missing Tailwind directives');
 });
 
-// Test 4: App Router structure
+test('globals.css defines shadcn theme CSS variables', () => {
+  const content = fs.readFileSync('src/app/globals.css', 'utf8');
+  assert(content.includes('--background:'), 'missing --background CSS variable');
+  assert(content.includes('--primary:'), 'missing --primary CSS variable');
+  assert(content.includes('--destructive:'), 'missing --destructive CSS variable');
+  assert(content.includes('--radius:'), 'missing --radius CSS variable');
+});
+
+// Test 4: shadcn/ui structure
+test('components.json exists for shadcn/ui', () => {
+  assert(fs.existsSync('components.json'), 'components.json not found');
+});
+
+test('shadcn/ui Button and Card components exist', () => {
+  assert(fs.existsSync('src/components/ui/button.tsx'), 'Button component not found');
+  assert(fs.existsSync('src/components/ui/card.tsx'), 'Card component not found');
+});
+
+test('lib utility helper exists for shadcn/ui components', () => {
+  const content = fs.readFileSync('src/lib/utils.ts', 'utf8');
+  assert(content.includes('clsx'), 'utils.ts does not use clsx');
+  assert(content.includes('twMerge'), 'utils.ts does not use tailwind-merge');
+});
+
+// Test 5: App Router structure
 test('App Router structure exists', () => {
   const appExists = fs.existsSync('app') || fs.existsSync('src/app');
   assert(appExists, 'app or src/app directory not found');
@@ -135,7 +176,7 @@ test('Root page.tsx exists', () => {
   assert(pageExists, 'app/page.tsx not found');
 });
 
-// Test 5: ESLint configuration
+// Test 6: ESLint configuration
 test('ESLint configuration exists', () => {
   const eslintExists = fs.existsSync('.eslintrc.json') ||
                        fs.existsSync('.eslintrc.js') ||
@@ -150,7 +191,7 @@ test('package.json has ESLint dependency', () => {
   assert(pkg.devDependencies?.['eslint-config-next'], 'eslint-config-next not found in devDependencies');
 });
 
-// Test 6: next.config file exists
+// Test 7: next.config file exists
 test('next.config file exists', () => {
   const mjsExists = fs.existsSync('next.config.mjs');
   const jsExists = fs.existsSync('next.config.js');

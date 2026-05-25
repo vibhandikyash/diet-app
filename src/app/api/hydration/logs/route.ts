@@ -1,7 +1,47 @@
 import { NextResponse } from 'next/server';
 import { getHydrationRequestUserId, parsePositiveInt } from '@/lib/hydration-api';
-import { calculateDailyHydrationSummary } from '@/lib/hydration-summary';
+import { calculateDailyHydrationSummary, normalizeHydrationDate } from '@/lib/hydration-summary';
 import { prisma } from '@/lib/prisma';
+
+function nextUtcDay(date: Date) {
+  return new Date(date.getTime() + 24 * 60 * 60 * 1000);
+}
+
+export async function GET(request: Request) {
+  try {
+    const userId = await getHydrationRequestUserId(request);
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const date = searchParams.get('date') || new Date().toISOString();
+    const dayStart = normalizeHydrationDate(date);
+    const dayEnd = nextUtcDay(dayStart);
+
+    const logs = await prisma.hydrationLog.findMany({
+      where: {
+        userId,
+        loggedAt: {
+          gte: dayStart,
+          lt: dayEnd,
+        },
+      },
+      orderBy: {
+        loggedAt: 'asc',
+      },
+    });
+
+    return NextResponse.json({ logs });
+  } catch (error) {
+    console.error('Error fetching hydration logs:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch hydration logs' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

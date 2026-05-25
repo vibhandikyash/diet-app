@@ -2,14 +2,19 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateFoodInput } from '@/lib/food-validation';
 
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
 // GET /api/foods/[id] - Get single food
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     const food = await prisma.foodItem.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         nutrition: true,
       },
@@ -35,9 +40,10 @@ export async function GET(
 // PUT /api/foods/[id] - Update food
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const {
       name,
@@ -71,7 +77,7 @@ export async function PUT(
 
     // Check if food exists
     const existingFood = await prisma.foodItem.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingFood) {
@@ -83,7 +89,7 @@ export async function PUT(
 
     // Update food item and nutrition data
     const food = await prisma.foodItem.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: name.trim(),
         servingSize: servingSize.toString(),
@@ -124,12 +130,13 @@ export async function PUT(
 // DELETE /api/foods/[id] - Delete food
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     // Check if food exists
     const existingFood = await prisma.foodItem.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingFood) {
@@ -141,7 +148,7 @@ export async function DELETE(
 
     // Delete food (nutrition data will cascade delete)
     await prisma.foodItem.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: 'Food deleted successfully' });

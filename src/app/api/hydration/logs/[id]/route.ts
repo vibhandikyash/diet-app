@@ -3,21 +3,29 @@ import { getHydrationRequestUserId, parsePositiveInt } from '@/lib/hydration-api
 import { calculateDailyHydrationSummary, normalizeHydrationDate } from '@/lib/hydration-summary';
 import { prisma } from '@/lib/prisma';
 
-export async function PUT(
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+function isCurrentUtcDay(date: Date) {
+  return normalizeHydrationDate(date).getTime() === normalizeHydrationDate(new Date()).getTime();
+}
+
+export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     const userId = await getHydrationRequestUserId(request);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const existingLog = await prisma.hydrationLog.findFirst({
+    const existingLog = await prisma.hydrationLog.findUnique({
       where: {
-        id: params.id,
-        userId,
+        id,
       },
     });
 
@@ -25,25 +33,59 @@ export async function PUT(
       return NextResponse.json({ error: 'Hydration log not found' }, { status: 404 });
     }
 
-    const body = await request.json();
-    const cupsConsumed = parsePositiveInt(body.cupsConsumed);
-    const cupSize = parsePositiveInt(body.cupSize);
-    const loggedAt = body.loggedAt ? new Date(body.loggedAt) : existingLog.loggedAt;
+    if (existingLog.userId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
-    if (!cupsConsumed || !cupSize || Number.isNaN(loggedAt.getTime())) {
-      return NextResponse.json(
-        { error: 'cupsConsumed, cupSize, and loggedAt must be valid' },
-        { status: 400 }
-      );
+    const body = await request.json();
+    const data: {
+      cupsConsumed?: number;
+      cupSize?: number;
+      loggedAt?: Date;
+    } = {};
+
+    if (Object.prototype.hasOwnProperty.call(body, 'cupsConsumed')) {
+      const cupsConsumed = parsePositiveInt(body.cupsConsumed);
+
+      if (!cupsConsumed) {
+        return NextResponse.json(
+          { error: 'cupsConsumed must be valid' },
+          { status: 400 }
+        );
+      }
+
+      data.cupsConsumed = cupsConsumed;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'cupSize')) {
+      const cupSize = parsePositiveInt(body.cupSize);
+
+      if (!cupSize) {
+        return NextResponse.json(
+          { error: 'cupSize must be valid' },
+          { status: 400 }
+        );
+      }
+
+      data.cupSize = cupSize;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'loggedAt')) {
+      const loggedAt = new Date(body.loggedAt);
+
+      if (Number.isNaN(loggedAt.getTime())) {
+        return NextResponse.json(
+          { error: 'loggedAt must be valid' },
+          { status: 400 }
+        );
+      }
+
+      data.loggedAt = loggedAt;
     }
 
     const log = await prisma.hydrationLog.update({
-      where: { id: params.id },
-      data: {
-        cupsConsumed,
-        cupSize,
-        loggedAt,
-      },
+      where: { id },
+      data,
     });
 
     const summary = await calculateDailyHydrationSummary(userId, log.loggedAt);
@@ -65,21 +107,23 @@ export async function PUT(
   }
 }
 
+export const PUT = PATCH;
+
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     const userId = await getHydrationRequestUserId(request);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const existingLog = await prisma.hydrationLog.findFirst({
+    const existingLog = await prisma.hydrationLog.findUnique({
       where: {
-        id: params.id,
-        userId,
+        id,
       },
     });
 
@@ -87,8 +131,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Hydration log not found' }, { status: 404 });
     }
 
+    if (existingLog.userId !== userId || !isCurrentUtcDay(existingLog.loggedAt)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     await prisma.hydrationLog.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     const summary = await calculateDailyHydrationSummary(userId, existingLog.loggedAt);
