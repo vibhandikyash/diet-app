@@ -11,6 +11,7 @@ const prisma = new PrismaClient();
 // Type checks - these will fail at compile time if types are wrong
 const userCheck: User = {
   id: 'test',
+  clerkId: null,
   email: 'test@example.com',
   name: 'Test User',
   password: 'hashed-password',
