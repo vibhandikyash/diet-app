@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Navigation from "./Navigation";
@@ -10,16 +10,16 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
+    if (isLoaded && !isSignedIn) {
+      router.push("/sign-in");
     }
-  }, [status, router]);
+  }, [isLoaded, isSignedIn, router]);
 
-  if (status === "loading") {
+  if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
@@ -27,7 +27,7 @@ export default function AppLayout({
     );
   }
 
-  if (!session) {
+  if (!isSignedIn) {
     return null;
   }
 

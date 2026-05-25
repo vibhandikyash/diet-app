@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
+import { OrganizationSwitcher, UserButton, useOrganization, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -15,7 +15,8 @@ const navLinks = [
 
 export default function Navigation() {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { user } = useUser();
+  const { organization } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -46,17 +47,18 @@ export default function Navigation() {
             </div>
           </div>
           <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
-            {session?.user?.email && (
-              <span className="text-sm text-gray-700">
-                {session.user.email}
+            {organization?.name && (
+              <span className="text-sm text-gray-500">
+                {organization.name}
               </span>
             )}
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Logout
-            </button>
+            {user?.primaryEmailAddress?.emailAddress && (
+              <span className="text-sm text-gray-700">
+                {user.primaryEmailAddress.emailAddress}
+              </span>
+            )}
+            <OrganizationSwitcher afterCreateOrganizationUrl="/dashboard" />
+            <UserButton />
           </div>
           <div className="flex items-center md:hidden">
             <button
@@ -123,20 +125,21 @@ export default function Navigation() {
             })}
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200">
-            {session?.user?.email && (
+            {organization?.name && (
+              <div className="px-4 mb-2 text-sm text-gray-500">
+                {organization.name}
+              </div>
+            )}
+            {user?.primaryEmailAddress?.emailAddress && (
               <div className="px-4 mb-3">
                 <div className="text-sm text-gray-500">
-                  {session.user.email}
+                  {user.primaryEmailAddress.emailAddress}
                 </div>
               </div>
             )}
-            <div className="px-4">
-              <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
-                className="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Logout
-              </button>
+            <div className="px-4 flex items-center gap-3">
+              <OrganizationSwitcher afterCreateOrganizationUrl="/dashboard" />
+              <UserButton />
             </div>
           </div>
         </div>

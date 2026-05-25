@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node verify-prisma.test.js && node verify-hydration-summary.test.js && node verify-hydration-logs.test.js && node verify-hydration-quick-log.test.js",
+    "test": "node verify-prisma.test.js && node verify-hydration-summary.test.js && node verify-hydration-logs.test.js && node verify-hydration-quick-log.test.js && node verify-clerk-auth.test.js",
     "test:setup": "node verify-setup.test.js",
     "test:prisma": "node verify-prisma.test.js",
     "test:auth": "node verify-auth.test.js",
@@ -24,6 +24,7 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.4.1",
     "@prisma/client": "^5.14.0",
     "@radix-ui/react-slot": "^1.2.4",
     "bcryptjs": "^2.4.3",
