@@ -147,9 +147,16 @@ test('components.json exists for shadcn/ui', () => {
   assert(fs.existsSync('components.json'), 'components.json not found');
 });
 
-test('shadcn/ui Button and Card components exist', () => {
+test('shadcn/ui Button, Form, and Card components exist', () => {
   assert(fs.existsSync('src/components/ui/button.tsx'), 'Button component not found');
+  assert(fs.existsSync('src/components/ui/form.tsx'), 'Form component not found');
   assert(fs.existsSync('src/components/ui/card.tsx'), 'Card component not found');
+});
+
+test('package.json has shadcn/ui form dependencies', () => {
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  assert(pkg.dependencies?.['@radix-ui/react-label'], '@radix-ui/react-label not found in dependencies');
+  assert(pkg.dependencies?.['react-hook-form'], 'react-hook-form not found in dependencies');
 });
 
 test('lib utility helper exists for shadcn/ui components', () => {

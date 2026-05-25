@@ -86,12 +86,12 @@ test('Schema contains NutritionData model', () => {
   assert(schema.includes('model NutritionData'), 'NutritionData model not found in schema');
 });
 
-test('Schema contains habit team foundation models', () => {
+test('Schema contains habit organization foundation models', () => {
   const schema = readSchema();
   for (const model of [
     'User',
-    'Team',
-    'TeamMembership',
+    'Organization',
+    'OrganizationMembership',
     'Habit',
     'HabitAssignment',
     'CheckIn',
@@ -201,37 +201,37 @@ test('HydrationPreferences stores default cup size for one user', () => {
   assert(model.includes('@relation(fields: [userId], references: [id], onDelete: Cascade)'), 'HydrationPreferences missing cascading User relation');
 });
 
-test('Team belongs to an owner and cascades from User', () => {
-  const model = getModel(readSchema(), 'Team');
-  assert(model.includes('ownerId') && model.includes('String'), 'Team missing ownerId String field');
-  assert(model.includes('memberships') && model.includes('TeamMembership[]'), 'Team missing memberships relation');
-  assert(model.includes('habits') && model.includes('Habit[]'), 'Team missing habits relation');
+test('Organization belongs to an owner and cascades from User', () => {
+  const model = getModel(readSchema(), 'Organization');
+  assert(model.includes('ownerId') && model.includes('String'), 'Organization missing ownerId String field');
+  assert(model.includes('memberships') && model.includes('OrganizationMembership[]'), 'Organization missing memberships relation');
+  assert(model.includes('habits') && model.includes('Habit[]'), 'Organization missing habits relation');
   assert(
-    model.includes('@relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)'),
-    'Team missing cascading owner relation'
+    model.includes('@relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)'),
+    'Organization missing cascading owner relation'
   );
 });
 
-test('TeamMembership links User and Team with cascading deletes', () => {
-  const model = getModel(readSchema(), 'TeamMembership');
-  assert(model.includes('userId') && model.includes('String'), 'TeamMembership missing userId');
-  assert(model.includes('teamId') && model.includes('String'), 'TeamMembership missing teamId');
-  assert(model.includes('role') && model.includes('String'), 'TeamMembership missing role');
-  assert(model.includes('@@unique([userId, teamId])'), 'TeamMembership missing unique user/team constraint');
+test('OrganizationMembership links User and Organization with cascading deletes', () => {
+  const model = getModel(readSchema(), 'OrganizationMembership');
+  assert(model.includes('userId') && model.includes('String'), 'OrganizationMembership missing userId');
+  assert(model.includes('organizationId') && model.includes('String'), 'OrganizationMembership missing organizationId');
+  assert(model.includes('role') && model.includes('String'), 'OrganizationMembership missing role');
+  assert(model.includes('@@unique([userId, organizationId])'), 'OrganizationMembership missing unique user/organization constraint');
   assert(
     model.includes('@relation(fields: [userId], references: [id], onDelete: Cascade)'),
-    'TeamMembership missing cascading User relation'
+    'OrganizationMembership missing cascading User relation'
   );
   assert(
-    model.includes('@relation(fields: [teamId], references: [id], onDelete: Cascade)'),
-    'TeamMembership missing cascading Team relation'
+    model.includes('@relation(fields: [organizationId], references: [id], onDelete: Cascade)'),
+    'OrganizationMembership missing cascading Organization relation'
   );
 });
 
-test('Habit belongs to User and Team and exposes assignments, check-ins, and streaks', () => {
+test('Habit belongs to User and Organization and exposes assignments, check-ins, and streaks', () => {
   const model = getModel(readSchema(), 'Habit');
   assert(model.includes('userId') && model.includes('String'), 'Habit missing userId');
-  assert(model.includes('teamId') && model.includes('String'), 'Habit missing teamId');
+  assert(model.includes('organizationId') && model.includes('String'), 'Habit missing organizationId');
   assert(model.includes('assignments') && model.includes('HabitAssignment[]'), 'Habit missing assignments relation');
   assert(model.includes('checkIns') && model.includes('CheckIn[]'), 'Habit missing checkIns relation');
   assert(model.includes('streaks') && model.includes('Streak[]'), 'Habit missing streaks relation');
@@ -240,8 +240,8 @@ test('Habit belongs to User and Team and exposes assignments, check-ins, and str
     'Habit missing cascading User relation'
   );
   assert(
-    model.includes('@relation(fields: [teamId], references: [id], onDelete: Cascade)'),
-    'Habit missing cascading Team relation'
+    model.includes('@relation(fields: [organizationId], references: [id], onDelete: Cascade)'),
+    'Habit missing cascading Organization relation'
   );
 });
 
@@ -313,11 +313,11 @@ test('Schema has index on date fields', () => {
   );
 });
 
-test('Habit foundation indexes frequently queried userId, teamId, habitId, and date fields', () => {
+test('Habit foundation indexes frequently queried userId, organizationId, habitId, and date fields', () => {
   const schema = readSchema();
   for (const index of [
     '@@index([userId])',
-    '@@index([teamId])',
+    '@@index([organizationId])',
     '@@index([habitId])',
     '@@index([date])'
   ]) {
@@ -340,6 +340,12 @@ test('Schema has DATABASE_URL environment variable', () => {
     schema.includes('env("DATABASE_URL")'),
     'DATABASE_URL environment variable not configured'
   );
+});
+
+test('package.json has database verification script', () => {
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  assert(pkg.scripts?.['db:verify'], 'package.json missing db:verify script');
+  assert(pkg.scripts['db:verify'].includes('$queryRaw'), 'db:verify script must execute a Prisma query');
 });
 
 // Test 7: Prisma Client generates successfully
@@ -404,7 +410,7 @@ test('Hydration migration creates additive tables and constraints', () => {
   );
 });
 
-test('Habit foundation migration creates tables, indexes, and cascading constraints', () => {
+test('Habit foundation migration creates organization tables, indexes, and cascading constraints', () => {
   const migrationPath = path.join(
     'prisma',
     'migrations',
@@ -414,14 +420,14 @@ test('Habit foundation migration creates tables, indexes, and cascading constrai
   assert(fs.existsSync(migrationPath), 'Habit foundation migration file not found');
 
   const migration = fs.readFileSync(migrationPath, 'utf8');
-  for (const table of ['Team', 'TeamMembership', 'Habit', 'HabitAssignment', 'CheckIn', 'Streak']) {
+  for (const table of ['Organization', 'OrganizationMembership', 'Habit', 'HabitAssignment', 'CheckIn', 'Streak']) {
     assert(migration.includes(`CREATE TABLE "${table}"`), `Habit foundation migration missing ${table} table`);
   }
   for (const index of [
-    'CREATE INDEX "TeamMembership_userId_idx"',
-    'CREATE INDEX "TeamMembership_teamId_idx"',
+    'CREATE INDEX "OrganizationMembership_userId_idx"',
+    'CREATE INDEX "OrganizationMembership_organizationId_idx"',
     'CREATE INDEX "Habit_userId_idx"',
-    'CREATE INDEX "Habit_teamId_idx"',
+    'CREATE INDEX "Habit_organizationId_idx"',
     'CREATE INDEX "HabitAssignment_userId_idx"',
     'CREATE INDEX "HabitAssignment_habitId_idx"',
     'CREATE INDEX "CheckIn_userId_idx"',

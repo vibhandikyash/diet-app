@@ -17,6 +17,7 @@
     "test:food-search": "node verify-food-search.test.js",
     "test:hydration-goal": "node verify-hydration-goal.test.js",
     "db:migrate": "prisma migrate dev",
+    "db:verify": "node -e \"const { PrismaClient, Prisma } = require('@prisma/client'); const prisma = new PrismaClient(); prisma['\\$queryRaw'](Prisma.sql(['SELECT 1'])).then(() => console.log('Database connection verified')).finally(() => prisma['\\$disconnect']())\"",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio"
   },
@@ -25,6 +26,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",
+    "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
@@ -35,6 +37,7 @@
     "next-auth": "^4.24.7",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-hook-form": "^7.68.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7"
   },

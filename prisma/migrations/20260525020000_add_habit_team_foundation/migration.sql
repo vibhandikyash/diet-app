@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "Team" (
+CREATE TABLE "Organization" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
@@ -7,27 +7,27 @@ CREATE TABLE "Team" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Team_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Organization_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "TeamMembership" (
+CREATE TABLE "OrganizationMembership" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "teamId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "role" TEXT NOT NULL DEFAULT 'member',
     "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "TeamMembership_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "OrganizationMembership_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Habit" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "teamId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "cadence" TEXT NOT NULL DEFAULT 'daily',
@@ -79,31 +79,31 @@ CREATE TABLE "Streak" (
 );
 
 -- CreateIndex
-CREATE INDEX "Team_ownerId_idx" ON "Team"("ownerId");
+CREATE INDEX "Organization_ownerId_idx" ON "Organization"("ownerId");
 
 -- CreateIndex
-CREATE INDEX "Team_name_idx" ON "Team"("name");
+CREATE INDEX "Organization_name_idx" ON "Organization"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TeamMembership_userId_teamId_key" ON "TeamMembership"("userId", "teamId");
+CREATE UNIQUE INDEX "OrganizationMembership_userId_organizationId_key" ON "OrganizationMembership"("userId", "organizationId");
 
 -- CreateIndex
-CREATE INDEX "TeamMembership_userId_idx" ON "TeamMembership"("userId");
+CREATE INDEX "OrganizationMembership_userId_idx" ON "OrganizationMembership"("userId");
 
 -- CreateIndex
-CREATE INDEX "TeamMembership_teamId_idx" ON "TeamMembership"("teamId");
+CREATE INDEX "OrganizationMembership_organizationId_idx" ON "OrganizationMembership"("organizationId");
 
 -- CreateIndex
 CREATE INDEX "Habit_userId_idx" ON "Habit"("userId");
 
 -- CreateIndex
-CREATE INDEX "Habit_teamId_idx" ON "Habit"("teamId");
+CREATE INDEX "Habit_organizationId_idx" ON "Habit"("organizationId");
 
 -- CreateIndex
-CREATE INDEX "Habit_userId_teamId_idx" ON "Habit"("userId", "teamId");
+CREATE INDEX "Habit_userId_organizationId_idx" ON "Habit"("userId", "organizationId");
 
 -- CreateIndex
-CREATE INDEX "Habit_teamId_isActive_idx" ON "Habit"("teamId", "isActive");
+CREATE INDEX "Habit_organizationId_isActive_idx" ON "Habit"("organizationId", "isActive");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "HabitAssignment_habitId_userId_key" ON "HabitAssignment"("habitId", "userId");
@@ -145,19 +145,19 @@ CREATE INDEX "Streak_habitId_idx" ON "Streak"("habitId");
 CREATE INDEX "Streak_lastCheckInDate_idx" ON "Streak"("lastCheckInDate");
 
 -- AddForeignKey
-ALTER TABLE "Team" ADD CONSTRAINT "Team_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Organization" ADD CONSTRAINT "Organization_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TeamMembership" ADD CONSTRAINT "TeamMembership_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "OrganizationMembership" ADD CONSTRAINT "OrganizationMembership_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TeamMembership" ADD CONSTRAINT "TeamMembership_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "OrganizationMembership" ADD CONSTRAINT "OrganizationMembership_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Habit" ADD CONSTRAINT "Habit_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Habit" ADD CONSTRAINT "Habit_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Habit" ADD CONSTRAINT "Habit_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "HabitAssignment" ADD CONSTRAINT "HabitAssignment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
