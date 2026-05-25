@@ -73,6 +73,43 @@ test('QuickHydrationLog updates today log list immediately after submission', ()
   assert(content.includes("Today's water log"), 'QuickHydrationLog should render today log list');
 });
 
+test('QuickHydrationLog provides edit and delete controls for each current-day log', () => {
+  const content = read('src/components/QuickHydrationLog.tsx');
+
+  assert(content.includes('handleEditLog'), 'QuickHydrationLog should support editing existing logs');
+  assert(content.includes('handleDeleteLog'), 'QuickHydrationLog should support deleting existing logs');
+  assert(content.includes('Edit'), 'QuickHydrationLog should render an edit action for current-day logs');
+  assert(content.includes('Delete'), 'QuickHydrationLog should render a delete action for current-day logs');
+});
+
+test('QuickHydrationLog edits cups consumed and cup size inline via PATCH', () => {
+  const content = read('src/components/QuickHydrationLog.tsx');
+
+  assert(content.includes('editingLogId'), 'QuickHydrationLog should track which log is being edited inline');
+  assert(content.includes('editCupsConsumed'), 'QuickHydrationLog should track editable cups consumed');
+  assert(content.includes('editCupSize'), 'QuickHydrationLog should track editable cup size');
+  assert(content.includes('method: "PATCH"') || content.includes("method: 'PATCH'"), 'QuickHydrationLog should PATCH edited logs');
+  assert(content.includes('cupsConsumed: Number(editCupsConsumed)'), 'QuickHydrationLog should submit edited cups consumed');
+  assert(content.includes('cupSize: Number(editCupSize)'), 'QuickHydrationLog should submit edited cup size');
+});
+
+test('QuickHydrationLog confirms before deleting and refreshes summary state after changes', () => {
+  const content = read('src/components/QuickHydrationLog.tsx');
+
+  assert(content.includes('window.confirm'), 'QuickHydrationLog should require confirmation before delete');
+  assert(content.includes('method: "DELETE"') || content.includes("method: 'DELETE'"), 'QuickHydrationLog should call DELETE for removals');
+  assert(content.includes('setSummary(data.summary)'), 'QuickHydrationLog should immediately refresh summary after create, edit, and delete');
+  assert(content.includes('progressPercent'), 'QuickHydrationLog should render progress derived from summary state');
+});
+
+test('QuickHydrationLog keeps historical logs read-only', () => {
+  const content = read('src/components/QuickHydrationLog.tsx');
+
+  assert(content.includes('isTodayLog'), 'QuickHydrationLog should distinguish current-day logs from historical logs');
+  assert(content.includes('read-only') || content.includes('Read-only'), 'QuickHydrationLog should present historical logs as read-only');
+  assert(content.includes('disabled={!isTodayLog'), 'QuickHydrationLog should disable edit and delete actions for historical logs');
+});
+
 test('QuickHydrationLog renders loading, success, and error feedback', () => {
   const content = read('src/components/QuickHydrationLog.tsx');
 

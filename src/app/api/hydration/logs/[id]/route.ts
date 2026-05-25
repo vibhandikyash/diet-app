@@ -3,7 +3,41 @@ import { getHydrationRequestUserId, parsePositiveInt } from '@/lib/hydration-api
 import { calculateDailyHydrationSummary, normalizeHydrationDate } from '@/lib/hydration-summary';
 import { prisma } from '@/lib/prisma';
 
-export async function PUT(
+function isCurrentHydrationDay(date: Date): boolean {
+  return normalizeHydrationDate(date).getTime() === normalizeHydrationDate(new Date()).getTime();
+}
+
+function buildHydrationLogUpdate(body: { cupsConsumed?: unknown; cupSize?: unknown }) {
+  const data: { cupsConsumed?: number; cupSize?: number } = {};
+
+  if (body.cupsConsumed !== undefined) {
+    const cupsConsumed = parsePositiveInt(body.cupsConsumed);
+
+    if (!cupsConsumed) {
+      return { error: 'cupsConsumed must be valid' };
+    }
+
+    data.cupsConsumed = cupsConsumed;
+  }
+
+  if (body.cupSize !== undefined) {
+    const cupSize = parsePositiveInt(body.cupSize);
+
+    if (!cupSize) {
+      return { error: 'cupSize must be valid' };
+    }
+
+    data.cupSize = cupSize;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return { error: 'cupsConsumed or cupSize is required' };
+  }
+
+  return { data };
+}
+
+export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
@@ -14,10 +48,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const existingLog = await prisma.hydrationLog.findFirst({
+    const existingLog = await prisma.hydrationLog.findUnique({
       where: {
         id: params.id,
-        userId,
       },
     });
 
@@ -25,35 +58,26 @@ export async function PUT(
       return NextResponse.json({ error: 'Hydration log not found' }, { status: 404 });
     }
 
-    const body = await request.json();
-    const cupsConsumed = parsePositiveInt(body.cupsConsumed);
-    const cupSize = parsePositiveInt(body.cupSize);
-    const loggedAt = body.loggedAt ? new Date(body.loggedAt) : existingLog.loggedAt;
+    if (existingLog.userId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
-    if (!cupsConsumed || !cupSize || Number.isNaN(loggedAt.getTime())) {
-      return NextResponse.json(
-        { error: 'cupsConsumed, cupSize, and loggedAt must be valid' },
-        { status: 400 }
-      );
+    if (!isCurrentHydrationDay(existingLog.loggedAt)) {
+      return NextResponse.json({ error: 'Only current-day hydration logs can be edited' }, { status: 403 });
+    }
+
+    const update = buildHydrationLogUpdate(await request.json());
+
+    if ('error' in update) {
+      return NextResponse.json({ error: update.error }, { status: 400 });
     }
 
     const log = await prisma.hydrationLog.update({
       where: { id: params.id },
-      data: {
-        cupsConsumed,
-        cupSize,
-        loggedAt,
-      },
+      data: update.data,
     });
 
     const summary = await calculateDailyHydrationSummary(userId, log.loggedAt);
-    const movedDays =
-      normalizeHydrationDate(existingLog.loggedAt).getTime() !==
-      normalizeHydrationDate(log.loggedAt).getTime();
-
-    if (movedDays) {
-      await calculateDailyHydrationSummary(userId, existingLog.loggedAt);
-    }
 
     return NextResponse.json({ log, summary });
   } catch (error) {
@@ -76,15 +100,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const existingLog = await prisma.hydrationLog.findFirst({
+    const existingLog = await prisma.hydrationLog.findUnique({
       where: {
         id: params.id,
-        userId,
       },
     });
 
     if (!existingLog) {
       return NextResponse.json({ error: 'Hydration log not found' }, { status: 404 });
+    }
+
+    if (existingLog.userId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    if (!isCurrentHydrationDay(existingLog.loggedAt)) {
+      return NextResponse.json({ error: 'Only current-day hydration logs can be deleted' }, { status: 403 });
     }
 
     await prisma.hydrationLog.delete({

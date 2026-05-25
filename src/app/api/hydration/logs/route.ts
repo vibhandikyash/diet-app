@@ -1,7 +1,49 @@
 import { NextResponse } from 'next/server';
 import { getHydrationRequestUserId, parsePositiveInt } from '@/lib/hydration-api';
-import { calculateDailyHydrationSummary } from '@/lib/hydration-summary';
+import { calculateDailyHydrationSummary, normalizeHydrationDate } from '@/lib/hydration-summary';
 import { prisma } from '@/lib/prisma';
+
+function nextUtcDay(date: Date): Date {
+  return new Date(date.getTime() + 24 * 60 * 60 * 1000);
+}
+
+export async function GET(request: Request) {
+  try {
+    const userId = await getHydrationRequestUserId(request);
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const date = searchParams.get('date');
+
+    if (!date) {
+      return NextResponse.json({ error: 'date is required' }, { status: 400 });
+    }
+
+    const dayStart = normalizeHydrationDate(date);
+    const logs = await prisma.hydrationLog.findMany({
+      where: {
+        userId,
+        loggedAt: {
+          gte: dayStart,
+          lt: nextUtcDay(dayStart),
+        },
+      },
+      orderBy: {
+        loggedAt: 'desc',
+      },
+    });
+
+    return NextResponse.json({ logs });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch hydration logs';
+    const status = message.includes('Invalid') ? 400 : 500;
+
+    return NextResponse.json({ error: message }, { status });
+  }
+}
 
 export async function POST(request: Request) {
   try {
