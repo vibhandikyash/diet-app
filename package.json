@@ -14,6 +14,7 @@
     "test:food-structure": "node verify-food-structure.test.js",
     "test:food-crud": "node verify-food-crud.test.js",
     "test:food-search": "node verify-food-search.test.js",
+    "test:hydration-goal": "node verify-hydration-goal.test.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio"
