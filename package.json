@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node verify-prisma.test.js && node verify-hydration-summary.test.js",
     "test:setup": "node verify-setup.test.js",
     "test:prisma": "node verify-prisma.test.js",
     "test:auth": "node verify-auth.test.js",
