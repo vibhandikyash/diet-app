@@ -29,6 +29,14 @@ function assert(condition, message) {
   }
 }
 
+function getModel(schema, modelName) {
+  return schema.match(new RegExp(`model ${modelName}\\s*{[^}]+}`, 's'))?.[0] || '';
+}
+
+function getEnum(schema, enumName) {
+  return schema.match(new RegExp(`enum ${enumName}\\s*{[^}]+}`, 's'))?.[0] || '';
+}
+
 // Test 1: Prisma dependencies installed
 test('package.json has Prisma dependencies', () => {
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -78,6 +86,37 @@ test('Schema contains NutritionData model', () => {
   assert(schema.includes('model NutritionData'), 'NutritionData model not found in schema');
 });
 
+test('Schema contains HydrationGoal model with required fields', () => {
+  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const model = getModel(schema, 'HydrationGoal');
+  assert(model, 'HydrationGoal model not found in schema');
+  assert(model.includes('userId') && model.includes('String'), 'HydrationGoal missing userId String field');
+  assert(model.includes('dailyTargetMl') && model.includes('Int'), 'HydrationGoal missing dailyTargetMl Int field');
+  assert(model.includes('unit') && model.includes('HydrationUnit'), 'HydrationGoal missing unit HydrationUnit field');
+});
+
+test('Schema contains WaterLog model with required fields', () => {
+  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const model = getModel(schema, 'WaterLog');
+  assert(model, 'WaterLog model not found in schema');
+  assert(model.includes('userId') && model.includes('String'), 'WaterLog missing userId String field');
+  assert(model.includes('amountMl') && model.includes('Int'), 'WaterLog missing amountMl Int field');
+  assert(model.includes('loggedAt') && model.includes('DateTime'), 'WaterLog missing loggedAt DateTime field');
+  assert(model.includes('createdAt') && model.includes('@default(now())'), 'WaterLog missing createdAt default');
+});
+
+test('Schema contains HydrationPreference model with preferred unit enum', () => {
+  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const model = getModel(schema, 'HydrationPreference');
+  const enumModel = getEnum(schema, 'HydrationUnit');
+  assert(model, 'HydrationPreference model not found in schema');
+  assert(model.includes('userId') && model.includes('String'), 'HydrationPreference missing userId String field');
+  assert(model.includes('preferredUnit') && model.includes('HydrationUnit'), 'HydrationPreference missing preferredUnit enum field');
+  assert(enumModel.includes('CUPS'), 'HydrationUnit enum missing CUPS');
+  assert(enumModel.includes('ML'), 'HydrationUnit enum missing ML');
+  assert(enumModel.includes('OZ'), 'HydrationUnit enum missing OZ');
+});
+
 // Test 4: Schema has correct relationships
 test('User has relationship with meals', () => {
   const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
@@ -99,11 +138,35 @@ test('Meal has relationship with user', () => {
 
 test('FoodItem has relationship with NutritionData', () => {
   const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
-  const foodModel = schema.match(/model FoodItem\s*{[^}]+}/s)?.[0] || '';
+  const foodModel = getModel(schema, 'FoodItem');
   assert(
     foodModel.includes('nutrition') || foodModel.includes('NutritionData'),
     'FoodItem model missing nutrition relationship'
   );
+});
+
+test('Hydration models have foreign key relationships to User', () => {
+  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const hydrationGoal = getModel(schema, 'HydrationGoal');
+  const waterLog = getModel(schema, 'WaterLog');
+  const hydrationPreference = getModel(schema, 'HydrationPreference');
+  const userModel = getModel(schema, 'User');
+
+  for (const [name, model] of [
+    ['HydrationGoal', hydrationGoal],
+    ['WaterLog', waterLog],
+    ['HydrationPreference', hydrationPreference],
+  ]) {
+    assert(
+      model.includes('@relation(fields: [userId], references: [id], onDelete: Cascade)'),
+      `${name} missing cascading User foreign key relation`
+    );
+    assert(model.includes('@@index([userId])'), `${name} missing userId index`);
+  }
+
+  assert(userModel.includes('hydrationGoals') && userModel.includes('HydrationGoal[]'), 'User missing hydrationGoals relationship');
+  assert(userModel.includes('waterLogs') && userModel.includes('WaterLog[]'), 'User missing waterLogs relationship');
+  assert(userModel.includes('hydrationPreference') && userModel.includes('HydrationPreference?'), 'User missing hydrationPreference relationship');
 });
 
 // Test 5: Schema has indexes on frequently queried fields
@@ -164,6 +227,23 @@ test('Initial migration exists', () => {
 
   const migrations = fs.readdirSync(migrationsDir).filter(f => f !== 'migration_lock.toml');
   assert(migrations.length > 0, 'No migration files found');
+});
+
+test('Hydration migration creates tables, enum, and User foreign keys', () => {
+  const migrationsDir = 'prisma/migrations';
+  const migrationSql = fs.readdirSync(migrationsDir)
+    .filter(f => f !== 'migration_lock.toml')
+    .map(f => path.join(migrationsDir, f, 'migration.sql'))
+    .filter(f => fs.existsSync(f))
+    .map(f => fs.readFileSync(f, 'utf8'))
+    .join('\n');
+
+  assert(migrationSql.includes('CREATE TYPE "HydrationUnit"'), 'HydrationUnit enum migration missing');
+  assert(migrationSql.includes('CREATE TABLE "HydrationGoal"'), 'HydrationGoal table migration missing');
+  assert(migrationSql.includes('CREATE TABLE "WaterLog"'), 'WaterLog table migration missing');
+  assert(migrationSql.includes('CREATE TABLE "HydrationPreference"'), 'HydrationPreference table migration missing');
+  assert(migrationSql.includes('FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE'), 'Hydration User foreign key migration missing');
+  assert(!migrationSql.match(/DROP TABLE "?(User|Meal|FoodItem|DailyLog|UserGoal|MealTemplate|NutritionData)"?/), 'Migration drops existing diet app tables');
 });
 
 // Test 9: Seed script exists and has content
