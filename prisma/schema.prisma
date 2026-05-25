@@ -12,12 +12,12 @@ datasource db {
 
 // User model - represents app users
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String
-  password      String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
   meals                   Meal[]
@@ -28,26 +28,156 @@ model User {
   hydrationLogs           HydrationLog[]
   dailyHydrationSummaries DailyHydrationSummary[]
   hydrationPreferences    HydrationPreferences?
+  ownedTeams              Team[]                  @relation("TeamOwner")
+  teamMemberships         TeamMembership[]
+  habits                  Habit[]
+  habitAssignments        HabitAssignment[]
+  checkIns                CheckIn[]
+  streaks                 Streak[]
 
   @@index([email])
 }
 
-// Meal model - individual meal entries
-model Meal {
+// Team model - groups users around shared habits
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  owner       User             @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberships TeamMembership[]
+  habits      Habit[]
+
+  @@index([ownerId])
+  @@index([name])
+}
+
+// TeamMembership model - users belonging to teams
+model TeamMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+// Habit model - a trackable behavior owned by a user within a team
+model Habit {
   id          String   @id @default(cuid())
   userId      String
+  teamId      String
   name        String
-  date        DateTime
-  mealType    String   // breakfast, lunch, dinner, snack
-  notes       String?
+  description String?
+  cadence     String   @default("daily")
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relationships
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  foodItems   MealFoodItem[]
-  dailyLog    DailyLog?         @relation(fields: [dailyLogId], references: [id])
-  dailyLogId  String?
+  team        Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignments HabitAssignment[]
+  checkIns    CheckIn[]
+  streaks     Streak[]
+
+  @@index([userId])
+  @@index([teamId])
+  @@index([userId, teamId])
+  @@index([teamId, isActive])
+}
+
+// HabitAssignment model - assigns a habit to a user
+model HabitAssignment {
+  id         String   @id @default(cuid())
+  userId     String
+  habitId    String
+  assignedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relationships
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, userId])
+  @@index([userId])
+  @@index([habitId])
+}
+
+// CheckIn model - dated completion record for a habit
+model CheckIn {
+  id        String   @id @default(cuid())
+  userId    String
+  habitId   String
+  date      DateTime
+  completed Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, userId, date])
+  @@index([userId])
+  @@index([habitId])
+  @@index([date])
+  @@index([userId, date])
+  @@index([habitId, date])
+}
+
+// Streak model - current and best streak state for a user habit
+model Streak {
+  id              String    @id @default(cuid())
+  userId          String
+  habitId         String
+  currentCount    Int       @default(0)
+  bestCount       Int       @default(0)
+  lastCheckInDate DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relationships
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, userId])
+  @@index([userId])
+  @@index([habitId])
+  @@index([lastCheckInDate])
+}
+
+// Meal model - individual meal entries
+model Meal {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  date      DateTime
+  mealType  String // breakfast, lunch, dinner, snack
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItems  MealFoodItem[]
+  dailyLog   DailyLog?      @relation(fields: [dailyLogId], references: [id])
+  dailyLogId String?
 
   @@index([userId])
   @@index([date])
@@ -56,21 +186,21 @@ model Meal {
 
 // FoodItem model - food items database
 model FoodItem {
-  id            String   @id @default(cuid())
-  name          String
-  brand         String?
-  servingSize   String
-  servingUnit   String
-  barcode       String?  @unique
-  isCustom      Boolean  @default(false)
-  createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  brand       String?
+  servingSize String
+  servingUnit String
+  barcode     String?  @unique
+  isCustom    Boolean  @default(false)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relationships
-  nutrition     NutritionData?
-  meals         MealFoodItem[]
-  templates     TemplateFoodItem[]
+  nutrition NutritionData?
+  meals     MealFoodItem[]
+  templates TemplateFoodItem[]
 
   @@index([name])
   @@index([barcode])
@@ -78,22 +208,22 @@ model FoodItem {
 
 // UserGoal model - user's nutrition goals
 model UserGoal {
-  id           String   @id @default(cuid())
-  userId       String
-  calories     Int
-  protein      Int      // grams
-  carbs        Int      // grams
-  fat          Int      // grams
-  fiber        Int?     // grams
-  sugar        Int?     // grams
-  startDate    DateTime @default(now())
-  endDate      DateTime?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String    @id @default(cuid())
+  userId    String
+  calories  Int
+  protein   Int // grams
+  carbs     Int // grams
+  fat       Int // grams
+  fiber     Int? // grams
+  sugar     Int? // grams
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   // Relationships
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, isActive])
@@ -108,23 +238,23 @@ model HydrationGoal {
   updatedAt       DateTime @updatedAt
 
   // Relationships
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 // HydrationLog model - individual hydration entries
 model HydrationLog {
-  id            String   @id @default(cuid())
-  userId        String
-  cupsConsumed  Int
-  cupSize       Int
-  loggedAt      DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  cupsConsumed Int
+  cupSize      Int
+  loggedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relationships
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([loggedAt])
@@ -142,7 +272,7 @@ model DailyHydrationSummary {
   updatedAt    DateTime @updatedAt
 
   // Relationships
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([userId])
@@ -158,30 +288,30 @@ model HydrationPreferences {
   updatedAt      DateTime @updatedAt
 
   // Relationships
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 // DailyLog model - daily nutrition summary
 model DailyLog {
-  id              String   @id @default(cuid())
-  userId          String
-  date            DateTime @unique
-  totalCalories   Int      @default(0)
-  totalProtein    Int      @default(0)
-  totalCarbs      Int      @default(0)
-  totalFat        Int      @default(0)
-  totalFiber      Int      @default(0)
-  totalSugar      Int      @default(0)
-  waterIntake     Int      @default(0) // ml
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  date          DateTime @unique
+  totalCalories Int      @default(0)
+  totalProtein  Int      @default(0)
+  totalCarbs    Int      @default(0)
+  totalFat      Int      @default(0)
+  totalFiber    Int      @default(0)
+  totalSugar    Int      @default(0)
+  waterIntake   Int      @default(0) // ml
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relationships
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  meals           Meal[]
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meals Meal[]
 
   @@index([userId])
   @@index([date])
@@ -194,14 +324,14 @@ model MealTemplate {
   userId      String
   name        String
   description String?
-  mealType    String   // breakfast, lunch, dinner, snack
+  mealType    String // breakfast, lunch, dinner, snack
   isPublic    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  foodItems   TemplateFoodItem[]
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItems TemplateFoodItem[]
 
   @@index([userId])
   @@index([userId, mealType])
@@ -209,27 +339,27 @@ model MealTemplate {
 
 // NutritionData model - nutrition facts for food items
 model NutritionData {
-  id            String   @id @default(cuid())
-  foodItemId    String   @unique
-  calories      Int
-  protein       Float    // grams
-  carbs         Float    // grams
-  fat           Float    // grams
-  fiber         Float?   // grams
-  sugar         Float?   // grams
-  sodium        Float?   // mg
-  cholesterol   Float?   // mg
-  saturatedFat  Float?   // grams
-  transFat      Float?   // grams
-  vitaminA      Float?   // mcg
-  vitaminC      Float?   // mg
-  calcium       Float?   // mg
-  iron          Float?   // mg
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  foodItemId   String   @unique
+  calories     Int
+  protein      Float // grams
+  carbs        Float // grams
+  fat          Float // grams
+  fiber        Float? // grams
+  sugar        Float? // grams
+  sodium       Float? // mg
+  cholesterol  Float? // mg
+  saturatedFat Float? // grams
+  transFat     Float? // grams
+  vitaminA     Float? // mcg
+  vitaminC     Float? // mg
+  calcium      Float? // mg
+  iron         Float? // mg
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relationships
-  foodItem      FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  foodItem FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
 
   @@index([foodItemId])
 }
@@ -244,8 +374,8 @@ model MealFoodItem {
   createdAt   DateTime @default(now())
 
   // Relationships
-  meal        Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
-  foodItem    FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  meal     Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  foodItem FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
 
   @@unique([mealId, foodItemId])
   @@index([mealId])
@@ -254,16 +384,16 @@ model MealFoodItem {
 
 // Junction table for MealTemplate and FoodItem (many-to-many)
 model TemplateFoodItem {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   templateId  String
   foodItemId  String
-  quantity    Float        @default(1)
+  quantity    Float    @default(1)
   servingSize String
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime @default(now())
 
   // Relationships
-  template    MealTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  foodItem    FoodItem     @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  template MealTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  foodItem FoodItem     @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
 
   @@unique([templateId, foodItemId])
   @@index([templateId])
