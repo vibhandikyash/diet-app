@@ -20,10 +20,14 @@ model User {
   updatedAt     DateTime       @updatedAt
 
   // Relationships
-  meals         Meal[]
-  goals         UserGoal[]
-  dailyLogs     DailyLog[]
-  mealTemplates MealTemplate[]
+  meals                   Meal[]
+  goals                   UserGoal[]
+  dailyLogs               DailyLog[]
+  mealTemplates           MealTemplate[]
+  hydrationGoals          HydrationGoal[]
+  hydrationLogs           HydrationLog[]
+  dailyHydrationSummaries DailyHydrationSummary[]
+  hydrationPreferences    HydrationPreferences?
 
   @@index([email])
 }
@@ -93,6 +97,70 @@ model UserGoal {
 
   @@index([userId])
   @@index([userId, isActive])
+}
+
+// HydrationGoal model - user's daily hydration target
+model HydrationGoal {
+  id              String   @id @default(cuid())
+  userId          String
+  dailyTargetCups Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// HydrationLog model - individual hydration entries
+model HydrationLog {
+  id            String   @id @default(cuid())
+  userId        String
+  cupsConsumed  Int
+  cupSize       Int
+  loggedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([loggedAt])
+  @@index([userId, loggedAt])
+}
+
+// DailyHydrationSummary model - daily hydration aggregates
+model DailyHydrationSummary {
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime
+  totalCups    Int      @default(0)
+  goalAchieved Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+// HydrationPreferences model - user's hydration defaults
+model HydrationPreferences {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  defaultCupSize Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relationships
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // DailyLog model - daily nutrition summary

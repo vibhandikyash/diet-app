@@ -29,6 +29,14 @@ function assert(condition, message) {
   }
 }
 
+function readSchema() {
+  return fs.readFileSync('prisma/schema.prisma', 'utf8');
+}
+
+function getModel(schema, modelName) {
+  return schema.match(new RegExp(`model ${modelName}\\s*{[^}]+}`, 's'))?.[0] || '';
+}
+
 // Test 1: Prisma dependencies installed
 test('package.json has Prisma dependencies', () => {
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -43,45 +51,44 @@ test('prisma/schema.prisma exists', () => {
 
 // Test 3: All 7 models are defined in schema
 test('Schema contains User model', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(schema.includes('model User'), 'User model not found in schema');
   assert(schema.match(/model User\s*{/), 'User model definition malformed');
 });
 
 test('Schema contains Meal model', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(schema.includes('model Meal'), 'Meal model not found in schema');
 });
 
 test('Schema contains FoodItem model', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(schema.includes('model FoodItem'), 'FoodItem model not found in schema');
 });
 
 test('Schema contains UserGoal model', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(schema.includes('model UserGoal'), 'UserGoal model not found in schema');
 });
 
 test('Schema contains DailyLog model', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(schema.includes('model DailyLog'), 'DailyLog model not found in schema');
 });
 
 test('Schema contains MealTemplate model', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(schema.includes('model MealTemplate'), 'MealTemplate model not found in schema');
 });
 
 test('Schema contains NutritionData model', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(schema.includes('model NutritionData'), 'NutritionData model not found in schema');
 });
 
 // Test 4: Schema has correct relationships
 test('User has relationship with meals', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
-  const userModel = schema.match(/model User\s*{[^}]+}/s)?.[0] || '';
+  const userModel = getModel(readSchema(), 'User');
   assert(
     userModel.includes('meals') || userModel.includes('Meal'),
     'User model missing meals relationship'
@@ -89,8 +96,7 @@ test('User has relationship with meals', () => {
 });
 
 test('Meal has relationship with user', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
-  const mealModel = schema.match(/model Meal\s*{[^}]+}/s)?.[0] || '';
+  const mealModel = getModel(readSchema(), 'Meal');
   assert(
     mealModel.includes('user') || mealModel.includes('User'),
     'Meal model missing user relationship'
@@ -98,17 +104,91 @@ test('Meal has relationship with user', () => {
 });
 
 test('FoodItem has relationship with NutritionData', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
-  const foodModel = schema.match(/model FoodItem\s*{[^}]+}/s)?.[0] || '';
+  const foodModel = getModel(readSchema(), 'FoodItem');
   assert(
     foodModel.includes('nutrition') || foodModel.includes('NutritionData'),
     'FoodItem model missing nutrition relationship'
   );
 });
 
+test('Schema contains hydration tracking models', () => {
+  const schema = readSchema();
+  for (const model of [
+    'HydrationGoal',
+    'HydrationLog',
+    'DailyHydrationSummary',
+    'HydrationPreferences'
+  ]) {
+    assert(schema.includes(`model ${model}`), `${model} model not found in schema`);
+  }
+});
+
+test('User has relationships with hydration models', () => {
+  const userModel = getModel(readSchema(), 'User');
+  assert(userModel.includes('hydrationGoals'), 'User model missing hydrationGoals relationship');
+  assert(userModel.includes('hydrationLogs'), 'User model missing hydrationLogs relationship');
+  assert(
+    userModel.includes('dailyHydrationSummaries'),
+    'User model missing dailyHydrationSummaries relationship'
+  );
+  assert(
+    userModel.includes('hydrationPreferences'),
+    'User model missing hydrationPreferences relationship'
+  );
+});
+
+test('HydrationGoal stores target cups and timestamps for a user', () => {
+  const model = getModel(readSchema(), 'HydrationGoal');
+  assert(model.includes('userId') && model.includes('String'), 'HydrationGoal missing userId');
+  assert(
+    model.includes('dailyTargetCups') && model.includes('Int'),
+    'HydrationGoal missing dailyTargetCups Int field'
+  );
+  assert(model.includes('createdAt') && model.includes('@default(now())'), 'HydrationGoal missing createdAt default');
+  assert(model.includes('updatedAt') && model.includes('@updatedAt'), 'HydrationGoal missing updatedAt timestamp');
+  assert(model.includes('@relation(fields: [userId], references: [id], onDelete: Cascade)'), 'HydrationGoal missing cascading User relation');
+});
+
+test('HydrationLog captures consumed cups, cup size, and loggedAt timestamp', () => {
+  const model = getModel(readSchema(), 'HydrationLog');
+  assert(model.includes('userId') && model.includes('String'), 'HydrationLog missing userId');
+  assert(model.includes('cupsConsumed') && model.includes('Int'), 'HydrationLog missing cupsConsumed Int field');
+  assert(model.includes('cupSize') && model.includes('Int'), 'HydrationLog missing cupSize Int field');
+  assert(
+    model.includes('loggedAt') && model.includes('@default(now())'),
+    'HydrationLog missing loggedAt default timestamp'
+  );
+  assert(model.includes('@relation(fields: [userId], references: [id], onDelete: Cascade)'), 'HydrationLog missing cascading User relation');
+});
+
+test('DailyHydrationSummary aggregates cups and goal status per user per day', () => {
+  const model = getModel(readSchema(), 'DailyHydrationSummary');
+  assert(model.includes('userId') && model.includes('String'), 'DailyHydrationSummary missing userId');
+  assert(model.includes('date') && model.includes('DateTime'), 'DailyHydrationSummary missing date');
+  assert(model.includes('totalCups') && model.includes('Int'), 'DailyHydrationSummary missing totalCups Int field');
+  assert(
+    model.includes('goalAchieved') && model.includes('Boolean') && model.includes('@default(false)'),
+    'DailyHydrationSummary missing goalAchieved Boolean default'
+  );
+  assert(
+    model.includes('@@unique([userId, date])'),
+    'DailyHydrationSummary missing per-user per-day unique constraint'
+  );
+});
+
+test('HydrationPreferences stores default cup size for one user', () => {
+  const model = getModel(readSchema(), 'HydrationPreferences');
+  assert(model.includes('userId') && model.includes('@unique'), 'HydrationPreferences missing unique userId');
+  assert(
+    model.includes('defaultCupSize') && model.includes('Int'),
+    'HydrationPreferences missing defaultCupSize Int field'
+  );
+  assert(model.includes('@relation(fields: [userId], references: [id], onDelete: Cascade)'), 'HydrationPreferences missing cascading User relation');
+});
+
 // Test 5: Schema has indexes on frequently queried fields
 test('Schema has index on userId fields', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(
     schema.includes('@@index([userId])') || schema.includes('@@index([user'),
     'Missing index on userId field'
@@ -116,7 +196,7 @@ test('Schema has index on userId fields', () => {
 });
 
 test('Schema has index on date fields', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(
     schema.includes('@@index([date])') || schema.includes('@@index([createdAt'),
     'Missing index on date field'
@@ -125,7 +205,7 @@ test('Schema has index on date fields', () => {
 
 // Test 6: PostgreSQL provider configured
 test('Schema uses PostgreSQL provider', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(
     schema.includes('provider = "postgresql"'),
     'Schema not configured for PostgreSQL'
@@ -133,7 +213,7 @@ test('Schema uses PostgreSQL provider', () => {
 });
 
 test('Schema has DATABASE_URL environment variable', () => {
-  const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
+  const schema = readSchema();
   assert(
     schema.includes('env("DATABASE_URL")'),
     'DATABASE_URL environment variable not configured'
@@ -164,6 +244,42 @@ test('Initial migration exists', () => {
 
   const migrations = fs.readdirSync(migrationsDir).filter(f => f !== 'migration_lock.toml');
   assert(migrations.length > 0, 'No migration files found');
+});
+
+test('Hydration migration creates additive tables and constraints', () => {
+  const migrationPath = path.join(
+    'prisma',
+    'migrations',
+    '20260525000000_add_hydration_tracking',
+    'migration.sql'
+  );
+  assert(fs.existsSync(migrationPath), 'Hydration migration file not found');
+
+  const migration = fs.readFileSync(migrationPath, 'utf8');
+  for (const table of [
+    'HydrationGoal',
+    'HydrationLog',
+    'DailyHydrationSummary',
+    'HydrationPreferences'
+  ]) {
+    assert(
+      migration.includes(`CREATE TABLE "${table}"`),
+      `Hydration migration missing ${table} table`
+    );
+    assert(
+      migration.includes(`ALTER TABLE "${table}" ADD CONSTRAINT "${table}_userId_fkey"`),
+      `Hydration migration missing ${table} user foreign key`
+    );
+  }
+
+  assert(
+    migration.includes('CREATE UNIQUE INDEX "DailyHydrationSummary_userId_date_key"'),
+    'Hydration migration missing summary user/date uniqueness'
+  );
+  assert(
+    migration.includes('CREATE UNIQUE INDEX "HydrationPreferences_userId_key"'),
+    'Hydration migration missing one preferences row per user constraint'
+  );
 });
 
 // Test 9: Seed script exists and has content
