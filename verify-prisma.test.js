@@ -167,8 +167,8 @@ test('DailyHydrationSummary aggregates cups and goal status per user per day', (
   assert(model.includes('date') && model.includes('DateTime'), 'DailyHydrationSummary missing date');
   assert(model.includes('totalCups') && model.includes('Int'), 'DailyHydrationSummary missing totalCups Int field');
   assert(
-    model.includes('goalAchieved') && model.includes('Boolean') && model.includes('@default(false)'),
-    'DailyHydrationSummary missing goalAchieved Boolean default'
+    model.includes('goalAchieved') && model.includes('Boolean?'),
+    'DailyHydrationSummary missing nullable goalAchieved Boolean field'
   );
   assert(
     model.includes('@@unique([userId, date])'),

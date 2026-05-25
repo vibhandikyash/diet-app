@@ -137,7 +137,7 @@ model DailyHydrationSummary {
   userId       String
   date         DateTime
   totalCups    Int      @default(0)
-  goalAchieved Boolean  @default(false)
+  goalAchieved Boolean?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
