@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node verify-prisma.test.js && node verify-hydration-summary.test.js && node verify-hydration-logs.test.js && node verify-hydration-quick-log.test.js",
+    "test": "node verify-prisma.test.js && node verify-hydration-summary.test.js && node verify-hydration-logs.test.js && node verify-hydration-quick-log.test.js && node verify-hydration-goal-page.test.js",
     "test:setup": "node verify-setup.test.js",
     "test:prisma": "node verify-prisma.test.js",
     "test:auth": "node verify-auth.test.js",
@@ -16,6 +16,7 @@
     "test:food-crud": "node verify-food-crud.test.js",
     "test:food-search": "node verify-food-search.test.js",
     "test:hydration-goal": "node verify-hydration-goal.test.js",
+    "test:hydration-goal-page": "node verify-hydration-goal-page.test.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio"
