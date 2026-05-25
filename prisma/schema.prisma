@@ -10,20 +10,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum HydrationUnit {
+  CUPS
+  ML
+  OZ
+}
+
 // User model - represents app users
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String
-  password      String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String
+  password            String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   // Relationships
-  meals         Meal[]
-  goals         UserGoal[]
-  dailyLogs     DailyLog[]
-  mealTemplates MealTemplate[]
+  meals               Meal[]
+  goals               UserGoal[]
+  dailyLogs           DailyLog[]
+  mealTemplates       MealTemplate[]
+  hydrationGoals      HydrationGoal[]
+  waterLogs           WaterLog[]
+  hydrationPreference HydrationPreference?
 
   @@index([email])
 }
@@ -93,6 +102,51 @@ model UserGoal {
 
   @@index([userId])
   @@index([userId, isActive])
+}
+
+// HydrationGoal model - user's daily water target
+model HydrationGoal {
+  id            String        @id @default(cuid())
+  userId        String
+  dailyTargetMl Int
+  unit          HydrationUnit @default(ML)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relationships
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// WaterLog model - timestamped water intake entries
+model WaterLog {
+  id        String   @id @default(cuid())
+  userId    String
+  amountMl  Int
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  // Relationships
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([loggedAt])
+  @@index([userId, loggedAt])
+}
+
+// HydrationPreference model - user's preferred hydration display unit
+model HydrationPreference {
+  id            String        @id @default(cuid())
+  userId        String        @unique
+  preferredUnit HydrationUnit @default(ML)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relationships
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // DailyLog model - daily nutrition summary
