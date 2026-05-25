@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AppLayout from '@/components/AppLayout';
@@ -28,7 +29,7 @@ interface PaginationData {
   totalPages: number;
 }
 
-export default function FoodsPage() {
+function FoodsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentPage = parseInt(searchParams.get('page') || '1');
@@ -312,5 +313,21 @@ export default function FoodsPage() {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+export default function FoodsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <div className="px-4 py-6 sm:px-6 lg:px-8">
+            <div className="text-center">Loading...</div>
+          </div>
+        </AppLayout>
+      }
+    >
+      <FoodsContent />
+    </Suspense>
   );
 }

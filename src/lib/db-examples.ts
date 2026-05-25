@@ -9,11 +9,12 @@ import { prisma } from './prisma';
  * USER EXAMPLES
  */
 
-export async function createUser(email: string, name: string) {
+export async function createUser(email: string, name: string, password: string) {
   return await prisma.user.create({
     data: {
       email,
       name,
+      password,
     },
   });
 }
