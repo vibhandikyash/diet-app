@@ -147,8 +147,9 @@ test('components.json exists for shadcn/ui', () => {
   assert(fs.existsSync('components.json'), 'components.json not found');
 });
 
-test('shadcn/ui Button and Card components exist', () => {
+test('shadcn/ui Button, Form, and Card components exist', () => {
   assert(fs.existsSync('src/components/ui/button.tsx'), 'Button component not found');
+  assert(fs.existsSync('src/components/ui/form.tsx'), 'Form component not found');
   assert(fs.existsSync('src/components/ui/card.tsx'), 'Card component not found');
 });
 
