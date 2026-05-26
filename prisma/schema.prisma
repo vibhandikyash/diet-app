@@ -12,12 +12,15 @@ datasource db {
 
 // User model - represents app users
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  clerkId        String?  @unique
+  email          String   @unique
+  name           String
+  password       String?
+  role           String   @default("member")
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relationships
   meals                   Meal[]
@@ -28,137 +31,112 @@ model User {
   hydrationLogs           HydrationLog[]
   dailyHydrationSummaries DailyHydrationSummary[]
   hydrationPreferences    HydrationPreferences?
-  ownedTeams              Team[]                  @relation("TeamOwner")
-  teamMemberships         TeamMembership[]
-  habits                  Habit[]
-  habitAssignments        HabitAssignment[]
-  checkIns                CheckIn[]
-  streaks                 Streak[]
+  organization            Organization?           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdHabits           Habit[]
+  assignments             Assignment[]
 
   @@index([email])
+  @@index([organizationId])
 }
 
-// Team model - groups users around shared habits
-model Team {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  ownerId     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// Organization model - groups users and teams
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
 
   // Relationships
-  owner       User             @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  memberships TeamMembership[]
-  habits      Habit[]
+  users User[]
+  teams Team[]
+}
 
-  @@index([ownerId])
+// Team model - groups habits within an organization
+model Team {
+  id             String   @id @default(cuid())
+  name           String
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  habits       Habit[]
+
+  @@index([organizationId])
   @@index([name])
 }
 
-// TeamMembership model - users belonging to teams
-model TeamMembership {
-  id        String   @id @default(cuid())
-  userId    String
-  teamId    String
-  role      String   @default("member")
-  joinedAt  DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relationships
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, teamId])
-  @@index([userId])
-  @@index([teamId])
-}
-
-// Habit model - a trackable behavior owned by a user within a team
+// Habit model - a trackable behavior created by a user within a team
 model Habit {
   id          String   @id @default(cuid())
-  userId      String
-  teamId      String
-  name        String
+  title       String
   description String?
-  cadence     String   @default("daily")
-  isActive    Boolean  @default(true)
+  frequency   String
+  createdById String
+  teamId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team        Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  assignments HabitAssignment[]
-  checkIns    CheckIn[]
-  streaks     Streak[]
+  createdBy   User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
 
-  @@index([userId])
+  @@index([createdById])
   @@index([teamId])
-  @@index([userId, teamId])
-  @@index([teamId, isActive])
+  @@index([createdById, teamId])
 }
 
-// HabitAssignment model - assigns a habit to a user
-model HabitAssignment {
+// Assignment model - assigns a habit to a user
+model Assignment {
   id         String   @id @default(cuid())
-  userId     String
   habitId    String
+  userId     String
   assignedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   // Relationships
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  habit    Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns CheckIn[]
+  streak   Streak?
 
   @@unique([habitId, userId])
-  @@index([userId])
   @@index([habitId])
+  @@index([userId])
 }
 
-// CheckIn model - dated completion record for a habit
+// CheckIn model - dated completion record for an assignment
 model CheckIn {
-  id        String   @id @default(cuid())
-  userId    String
-  habitId   String
-  date      DateTime
-  completed Boolean  @default(true)
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  assignmentId String
+  completedAt  DateTime
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relationships
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
-  @@unique([habitId, userId, date])
-  @@index([userId])
-  @@index([habitId])
-  @@index([date])
-  @@index([userId, date])
-  @@index([habitId, date])
+  @@index([assignmentId])
+  @@index([completedAt])
 }
 
-// Streak model - current and best streak state for a user habit
+// Streak model - current and best streak state for an assignment
 model Streak {
   id              String    @id @default(cuid())
-  userId          String
-  habitId         String
-  currentCount    Int       @default(0)
-  bestCount       Int       @default(0)
+  assignmentId    String    @unique
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
   lastCheckInDate DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   // Relationships
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
-  @@unique([habitId, userId])
-  @@index([userId])
-  @@index([habitId])
+  @@index([assignmentId])
   @@index([lastCheckInDate])
 }
 

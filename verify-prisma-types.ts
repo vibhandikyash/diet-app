@@ -3,7 +3,22 @@
  * This file ensures all Prisma models have correct TypeScript types
  */
 
-import { PrismaClient, User, Meal, FoodItem, UserGoal, DailyLog, MealTemplate, NutritionData } from '@prisma/client';
+import {
+  Assignment,
+  CheckIn,
+  DailyLog,
+  FoodItem,
+  Habit,
+  Meal,
+  MealTemplate,
+  NutritionData,
+  Organization,
+  PrismaClient,
+  Streak,
+  Team,
+  User,
+  UserGoal,
+} from '@prisma/client';
 
 // Verify PrismaClient exports all expected models
 const prisma = new PrismaClient();
@@ -11,9 +26,65 @@ const prisma = new PrismaClient();
 // Type checks - these will fail at compile time if types are wrong
 const userCheck: User = {
   id: 'test',
+  clerkId: null,
   email: 'test@example.com',
   name: 'Test User',
   password: 'hashed-password',
+  role: 'member',
+  organizationId: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const organizationCheck: Organization = {
+  id: 'test',
+  name: 'Test Organization',
+  createdAt: new Date(),
+};
+
+const teamCheck: Team = {
+  id: 'test',
+  name: 'Test Team',
+  organizationId: 'test',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const habitCheck: Habit = {
+  id: 'test',
+  title: 'Drink water',
+  description: null,
+  frequency: 'daily',
+  createdById: 'test',
+  teamId: 'test',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const assignmentCheck: Assignment = {
+  id: 'test',
+  habitId: 'test',
+  userId: 'test',
+  assignedAt: new Date(),
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const checkInCheck: CheckIn = {
+  id: 'test',
+  assignmentId: 'test',
+  completedAt: new Date(),
+  notes: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const streakCheck: Streak = {
+  id: 'test',
+  assignmentId: 'test',
+  currentStreak: 1,
+  longestStreak: 3,
+  lastCheckInDate: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -109,4 +180,7 @@ const nutritionDataCheck: NutritionData = {
 
 console.log('✓ All Prisma types are correctly defined');
 console.log('✓ PrismaClient is available');
-console.log('✓ All 7 models have TypeScript types: User, Meal, FoodItem, UserGoal, DailyLog, MealTemplate, NutritionData');
+console.log(
+  '✓ Foundation models have TypeScript types: User, Organization, Team, Habit, Assignment, CheckIn, Streak'
+);
+console.log('✓ Nutrition models have TypeScript types: Meal, FoodItem, UserGoal, DailyLog, MealTemplate, NutritionData');
