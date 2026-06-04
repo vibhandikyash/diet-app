@@ -86,6 +86,18 @@ function loadRoute(routePath, fakePrisma) {
           },
         };
       }
+      if (request === '@/lib/hydration-log-validation') {
+        return {
+          validateCupsConsumed: (value) => {
+            const n = typeof value === 'number' ? value : Number(value);
+            return Number.isInteger(n) && n > 0 ? null : { message: 'cupsConsumed must be a positive integer' };
+          },
+          validateCupSize: (value) => {
+            const n = typeof value === 'number' ? value : Number(value);
+            return Number.isInteger(n) && n > 0 ? null : { message: 'cupSize must be a positive integer' };
+          },
+        };
+      }
       if (request === '@/lib/hydration-summary') {
         return {
           calculateDailyHydrationSummary: async (userId, date) => ({
@@ -291,6 +303,101 @@ test('DELETE /api/hydration/logs/:id returns 403 for non-current-day logs', asyn
   );
 
   assert(response.status === 403, `Expected status 403, got ${response.status}`);
+});
+
+test('POST /api/hydration/logs rejects cupsConsumed of 0 with a clear non-positive error', async () => {
+  const fakePrisma = {
+    hydrationLog: {
+      create: async () => {
+        throw new Error('create should not be called for non-positive cupsConsumed');
+      },
+    },
+  };
+  const { POST } = loadRoute('src/app/api/hydration/logs/route.ts', fakePrisma);
+
+  const response = await POST(createRequest('http://test.local/api/hydration/logs', {
+    method: 'POST',
+    body: { cupsConsumed: 0, cupSize: 8 },
+  }));
+  const json = await response.json();
+
+  assert(response.status === 400, `Expected status 400, got ${response.status}`);
+  assert(
+    typeof json.error === 'string' && /positive/i.test(json.error),
+    `Expected error to mention "positive", got: ${json.error}`
+  );
+});
+
+test('POST /api/hydration/logs rejects negative cupsConsumed with a clear error', async () => {
+  const fakePrisma = {
+    hydrationLog: {
+      create: async () => {
+        throw new Error('create should not be called for negative cupsConsumed');
+      },
+    },
+  };
+  const { POST } = loadRoute('src/app/api/hydration/logs/route.ts', fakePrisma);
+
+  const response = await POST(createRequest('http://test.local/api/hydration/logs', {
+    method: 'POST',
+    body: { cupsConsumed: -3, cupSize: 8 },
+  }));
+  const json = await response.json();
+
+  assert(response.status === 400, `Expected status 400, got ${response.status}`);
+  assert(
+    typeof json.error === 'string' && /positive/i.test(json.error),
+    `Expected error to mention "positive", got: ${json.error}`
+  );
+});
+
+test('POST /api/hydration/logs accepts valid positive amounts', async () => {
+  const fakePrisma = {
+    hydrationLog: {
+      create: async (args) => ({ id: 'log-1', ...args.data }),
+    },
+  };
+  const { POST } = loadRoute('src/app/api/hydration/logs/route.ts', fakePrisma);
+
+  const response = await POST(createRequest('http://test.local/api/hydration/logs', {
+    method: 'POST',
+    body: { cupsConsumed: 2, cupSize: 8 },
+  }));
+
+  assert(response.status === 201, `Expected status 201 for valid positive amounts, got ${response.status}`);
+});
+
+test('PATCH /api/hydration/logs/:id rejects non-positive cupsConsumed with a clear error', async () => {
+  const fakePrisma = {
+    hydrationLog: {
+      findUnique: async () => ({
+        id: 'log-1',
+        userId: 'user-1',
+        cupsConsumed: 2,
+        cupSize: 8,
+        loggedAt: new Date(),
+      }),
+      update: async () => {
+        throw new Error('update should not be called for non-positive cupsConsumed');
+      },
+    },
+  };
+  const { PATCH } = loadRoute('src/app/api/hydration/logs/[id]/route.ts', fakePrisma);
+
+  const response = await PATCH(
+    createRequest('http://test.local/api/hydration/logs/log-1', {
+      method: 'PATCH',
+      body: { cupsConsumed: 0 },
+    }),
+    { params: { id: 'log-1' } }
+  );
+  const json = await response.json();
+
+  assert(response.status === 400, `Expected status 400, got ${response.status}`);
+  assert(
+    typeof json.error === 'string' && /positive/i.test(json.error),
+    `Expected error to mention "positive", got: ${json.error}`
+  );
 });
 
 process.on('beforeExit', () => {

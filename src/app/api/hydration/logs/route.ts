@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getHydrationRequestUserId, parsePositiveInt } from '@/lib/hydration-api';
+import { validateCupsConsumed, validateCupSize } from '@/lib/hydration-log-validation';
 import { calculateDailyHydrationSummary, normalizeHydrationDate } from '@/lib/hydration-summary';
 import { prisma } from '@/lib/prisma';
 
@@ -52,16 +53,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const cupsConsumed = parsePositiveInt(body.cupsConsumed);
-    const cupSize = parsePositiveInt(body.cupSize);
-    const loggedAt = body.loggedAt ? new Date(body.loggedAt) : new Date();
 
-    if (!cupsConsumed || !cupSize || Number.isNaN(loggedAt.getTime())) {
-      return NextResponse.json(
-        { error: 'cupsConsumed, cupSize, and loggedAt must be valid' },
-        { status: 400 }
-      );
+    const cupsConsumedError = validateCupsConsumed(body.cupsConsumed);
+    if (cupsConsumedError) {
+      return NextResponse.json({ error: cupsConsumedError.message }, { status: 400 });
     }
+
+    const cupSizeError = validateCupSize(body.cupSize);
+    if (cupSizeError) {
+      return NextResponse.json({ error: cupSizeError.message }, { status: 400 });
+    }
+
+    const loggedAt = body.loggedAt ? new Date(body.loggedAt) : new Date();
+    if (Number.isNaN(loggedAt.getTime())) {
+      return NextResponse.json({ error: 'loggedAt must be a valid date' }, { status: 400 });
+    }
+
+    const cupsConsumed = parsePositiveInt(body.cupsConsumed)!;
+    const cupSize = parsePositiveInt(body.cupSize)!;
 
     const log = await prisma.hydrationLog.create({
       data: {
