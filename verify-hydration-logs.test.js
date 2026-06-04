@@ -100,6 +100,28 @@ function loadRoute(routePath, fakePrisma) {
           },
         };
       }
+      if (request === '@/lib/hydration-log-validation') {
+        return {
+          validateCupsConsumed: (cupsConsumed) => {
+            if (typeof cupsConsumed !== 'number' || !Number.isInteger(cupsConsumed)) {
+              return { field: 'cupsConsumed', message: 'cupsConsumed must be a whole number' };
+            }
+            if (cupsConsumed <= 0) {
+              return { field: 'cupsConsumed', message: 'cupsConsumed must be greater than 0' };
+            }
+            return null;
+          },
+          validateCupSize: (cupSize) => {
+            if (typeof cupSize !== 'number' || !Number.isInteger(cupSize)) {
+              return { field: 'cupSize', message: 'cupSize must be a whole number' };
+            }
+            if (cupSize <= 0) {
+              return { field: 'cupSize', message: 'cupSize must be greater than 0' };
+            }
+            return null;
+          },
+        };
+      }
       return require(request);
     },
     console,
@@ -291,6 +313,129 @@ test('DELETE /api/hydration/logs/:id returns 403 for non-current-day logs', asyn
   );
 
   assert(response.status === 403, `Expected status 403, got ${response.status}`);
+});
+
+test('POST /api/hydration/logs rejects zero cupsConsumed with validation error', async () => {
+  const fakePrisma = {
+    hydrationLog: {
+      create: async () => {
+        throw new Error('create should not be called for invalid cupsConsumed');
+      },
+    },
+  };
+  const { POST } = loadRoute('src/app/api/hydration/logs/route.ts', fakePrisma);
+
+  const response = await POST(createRequest('http://test.local/api/hydration/logs', {
+    method: 'POST',
+    body: { cupsConsumed: 0, cupSize: 12 },
+  }));
+  const json = await response.json();
+
+  assert(response.status === 400, `Expected status 400, got ${response.status}`);
+  assert(json.error.includes('cupsConsumed'), `Expected error message to mention cupsConsumed, got: ${json.error}`);
+});
+
+test('POST /api/hydration/logs rejects negative cupSize with validation error', async () => {
+  const fakePrisma = {
+    hydrationLog: {
+      create: async () => {
+        throw new Error('create should not be called for invalid cupSize');
+      },
+    },
+  };
+  const { POST } = loadRoute('src/app/api/hydration/logs/route.ts', fakePrisma);
+
+  const response = await POST(createRequest('http://test.local/api/hydration/logs', {
+    method: 'POST',
+    body: { cupsConsumed: 2, cupSize: -8 },
+  }));
+  const json = await response.json();
+
+  assert(response.status === 400, `Expected status 400, got ${response.status}`);
+  assert(json.error.includes('cupSize'), `Expected error message to mention cupSize, got: ${json.error}`);
+});
+
+test('POST /api/hydration/logs accepts positive amounts', async () => {
+  const calls = [];
+  const fakePrisma = {
+    hydrationLog: {
+      create: async (args) => {
+        calls.push({ method: 'create', args });
+        return { id: 'log-1', ...args.data };
+      },
+    },
+  };
+  const { POST } = loadRoute('src/app/api/hydration/logs/route.ts', fakePrisma);
+
+  const response = await POST(createRequest('http://test.local/api/hydration/logs', {
+    method: 'POST',
+    body: { cupsConsumed: 3, cupSize: 16 },
+  }));
+
+  assert(response.status === 201, `Expected status 201, got ${response.status}`);
+  assert(calls[0].args.data.cupsConsumed === 3, 'Expected positive cupsConsumed to be accepted');
+  assert(calls[0].args.data.cupSize === 16, 'Expected positive cupSize to be accepted');
+});
+
+test('PATCH /api/hydration/logs/:id rejects zero cupsConsumed with validation error', async () => {
+  const fakePrisma = {
+    hydrationLog: {
+      findUnique: async () => ({
+        id: 'log-1',
+        userId: 'user-1',
+        cupsConsumed: 2,
+        cupSize: 12,
+        loggedAt: new Date('2026-05-25T12:00:00.000Z'),
+      }),
+      update: async () => {
+        throw new Error('update should not be called for invalid cupsConsumed');
+      },
+    },
+  };
+  const { PATCH } = loadRoute('src/app/api/hydration/logs/[id]/route.ts', fakePrisma);
+
+  const response = await PATCH(
+    createRequest('http://test.local/api/hydration/logs/log-1', {
+      method: 'PATCH',
+      body: { cupsConsumed: 0 },
+    }),
+    { params: { id: 'log-1' } }
+  );
+  const json = await response.json();
+
+  assert(response.status === 400, `Expected status 400, got ${response.status}`);
+  assert(json.error.includes('cupsConsumed'), `Expected error message to mention cupsConsumed, got: ${json.error}`);
+});
+
+test('PATCH /api/hydration/logs/:id accepts positive amounts', async () => {
+  const calls = [];
+  const fakePrisma = {
+    hydrationLog: {
+      findUnique: async () => ({
+        id: 'log-1',
+        userId: 'user-1',
+        cupsConsumed: 2,
+        cupSize: 12,
+        loggedAt: new Date('2026-05-25T12:00:00.000Z'),
+      }),
+      update: async (args) => {
+        calls.push({ method: 'update', args });
+        return { id: 'log-1', cupsConsumed: args.data.cupsConsumed, cupSize: 12, userId: 'user-1', loggedAt: new Date('2026-05-25T12:00:00.000Z') };
+      },
+    },
+  };
+  const { PATCH } = loadRoute('src/app/api/hydration/logs/[id]/route.ts', fakePrisma);
+
+  const response = await PATCH(
+    createRequest('http://test.local/api/hydration/logs/log-1', {
+      method: 'PATCH',
+      body: { cupsConsumed: 5 },
+    }),
+    { params: { id: 'log-1' } }
+  );
+
+  assert(response.status === 200, `Expected status 200, got ${response.status}`);
+  assert(calls[0].args.data.cupsConsumed === 5, 'Expected positive cupsConsumed to be accepted');
 });
 
 process.on('beforeExit', () => {
