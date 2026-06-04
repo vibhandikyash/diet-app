@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getHydrationRequestUserId, parsePositiveInt } from '@/lib/hydration-api';
 import { calculateDailyHydrationSummary, normalizeHydrationDate } from '@/lib/hydration-summary';
+import { validateHydrationAmount } from '@/lib/hydration-log-validation';
 import { prisma } from '@/lib/prisma';
 
 function nextUtcDay(date: Date) {
@@ -52,6 +53,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+
+    const cupsConsumedError = validateHydrationAmount(body.cupsConsumed, 'cupsConsumed');
+    if (cupsConsumedError) {
+      return NextResponse.json({ error: cupsConsumedError.message }, { status: 400 });
+    }
+
+    const cupSizeError = validateHydrationAmount(body.cupSize, 'cupSize');
+    if (cupSizeError) {
+      return NextResponse.json({ error: cupSizeError.message }, { status: 400 });
+    }
+
     const cupsConsumed = parsePositiveInt(body.cupsConsumed);
     const cupSize = parsePositiveInt(body.cupSize);
     const loggedAt = body.loggedAt ? new Date(body.loggedAt) : new Date();

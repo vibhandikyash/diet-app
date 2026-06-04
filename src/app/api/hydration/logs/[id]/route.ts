@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getHydrationRequestUserId, parsePositiveInt } from '@/lib/hydration-api';
 import { calculateDailyHydrationSummary, normalizeHydrationDate } from '@/lib/hydration-summary';
+import { validateHydrationAmount } from '@/lib/hydration-log-validation';
 import { prisma } from '@/lib/prisma';
 
 type RouteContext = {
@@ -45,29 +46,31 @@ export async function PATCH(
     } = {};
 
     if (Object.prototype.hasOwnProperty.call(body, 'cupsConsumed')) {
-      const cupsConsumed = parsePositiveInt(body.cupsConsumed);
+      const cupsConsumedError = validateHydrationAmount(body.cupsConsumed, 'cupsConsumed');
 
-      if (!cupsConsumed) {
+      if (cupsConsumedError) {
         return NextResponse.json(
-          { error: 'cupsConsumed must be valid' },
+          { error: cupsConsumedError.message },
           { status: 400 }
         );
       }
 
-      data.cupsConsumed = cupsConsumed;
+      const cupsConsumed = parsePositiveInt(body.cupsConsumed);
+      data.cupsConsumed = cupsConsumed!;
     }
 
     if (Object.prototype.hasOwnProperty.call(body, 'cupSize')) {
-      const cupSize = parsePositiveInt(body.cupSize);
+      const cupSizeError = validateHydrationAmount(body.cupSize, 'cupSize');
 
-      if (!cupSize) {
+      if (cupSizeError) {
         return NextResponse.json(
-          { error: 'cupSize must be valid' },
+          { error: cupSizeError.message },
           { status: 400 }
         );
       }
 
-      data.cupSize = cupSize;
+      const cupSize = parsePositiveInt(body.cupSize);
+      data.cupSize = cupSize!;
     }
 
     if (Object.prototype.hasOwnProperty.call(body, 'loggedAt')) {
